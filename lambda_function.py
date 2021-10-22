@@ -1,16 +1,65 @@
+from bson import json_util, ObjectId
+from mongo_handler import MongoConnection
+
 import json
-from predict_function import PredictFindU
+import main
+import clustering
+
+# from classifier import ClassifierSalutem
 
 def lambda_handler(event, context):
-    # usr_id, lat, long, ts
-    req = eval(event['body'])
 
-    predictor = PredictFindU(req["usr_id"])
+    print(f"Lambda event: {event}")
+    
+    request = eval(event['body']) if event.get('headers') else event['body']
+    print(f"Request body: {request}")
 
-    response = predictor.run_predict(req["lat"],req["lon"],req["ts"])
-    # TODO implement
-    return {
-        'statusCode': 200,
-        #'body': json.dumps({"alert":response}) #0 : no alert, 1 : alert
-        'body': json.dumps(response)
-    }
+    try:
+        mongo_h = MongoConnection()
+        dataset = mongo_h.get_collection('users')
+    except Exception as e:
+        print(f"Mongo get collection error: {e}")
+        return {
+            'statusCode': 400,
+            'body': json.dumps({'error':e.args})
+        }
+
+    try:
+        otherUsers = main.removeUserId(request['userId'], dataset)
+        print(f"Separated users: {otherUsers}")
+
+        otherUsersKnn = clustering.transformToKnnArray(otherUsers)
+        print(f"Other users array: {otherUsersKnn}")
+
+        user = main.onlyById(request['userId'], dataset)
+        print(f"current user: {user}")
+
+        userKnn = clustering.transformToKnnArray(user)
+        print(f"Current user transformed: {userKnn}")
+
+        # classifier_result = ClassifierSalutem(otherUsersKnn)
+
+    except Exception as e:
+        print(f"Transformation error: {e}")
+        return {
+            'statusCode': 400,
+            'body': json.dumps({'error':e.args})
+        }
+
+    try:
+        result = clustering.knn(userKnn, otherUsersKnn)
+
+        usersByKnn = clustering.getUsersByKnn(otherUsers, result[0])
+        print(f"Recommender result: {usersByKnn}")
+
+        return {
+            "statusCode": 200,
+            "body": json_util.dumps({"data": usersByKnn}),
+            "isBase64Encoded": False
+        }
+    except Exception as e:
+        print(f"Clustering exception: {e}")
+        return {
+            'statusCode': 400,
+            'body': json.dumps({'error':e.args})
+        }
