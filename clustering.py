@@ -1,5 +1,7 @@
 from sklearn.neighbors import BallTree
 from sklearn.preprocessing import MinMaxScaler
+from datetime import datetime
+from datetime import date
 
 def getUsersByKnn(otherUsers, result):
     temp = []
@@ -8,26 +10,24 @@ def getUsersByKnn(otherUsers, result):
         string_id = str(otherUsers[x]['_id'])
         temp.append({
             "id": string_id, 
-            "user_name": otherUsers[x]['name'],
-            "insurance": otherUsers[x]['insurance'],
-            "weight": otherUsers[x]['weight'],
-            "height": otherUsers[x]['height'],
+            "conditions": otherUsers[x]['conditions'],
         })
     return temp
 
 def transformToKnnArray(data):
-    scaler = MinMaxScaler()
     temp = []
+    today = date.today()
     for i in range(len(data)):
-        # user_age -> get user age
-        user_age = None
+        birth_date = datetime.strptime(data[i]['birthday'], '%d/%m/%Y')
+        age = today.year - birth_date.year
+        if today.month < birth_date.month or today.month == birth_date.month and today.day < birth_date.day:
+            age -= 1
 
-        #encode user sex
-        encoded_sex = None
-
-        features_array = [data[i]['weight'],data[i]['height'], encoded_sex, user_age].extend(data[i].conditions)
+        encoded_sex = 1 if data[i]['sex'] == 'M' else 0
+        features_array = [data[i]['weight'],data[i]['height'], encoded_sex, age]
+        features_array.extend(data[i]['conditions'])
         temp.append(features_array)
-    return scaler.fit_transform(temp)
+    return temp
 
 def knn(user, otherUsers):
     tree = BallTree(otherUsers)

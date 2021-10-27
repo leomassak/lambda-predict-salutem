@@ -30,7 +30,9 @@ def onlyById(id, data):
     temp = []
     for i in range(len(data)):
         if data[i].get('_id'):
+            print('Entrei onlyById')
             if id in str(data[i]['_id']):
+                print('Entrei no if')
                 temp.append(data[i])
     return temp
 
